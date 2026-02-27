@@ -18,7 +18,7 @@ ID3D11RenderTargetView* ui::pMainRenderTargetView = nullptr;
 
 HMODULE ui::hCurrentModule = nullptr;
 
-LPCSTR ui::lpWindowName = "userman";
+LPCSTR ui::lpWindowName = "lambda";
 ImVec2 ui::vWindowSize = { 550, 400 };
 ImGuiWindowFlags ui::windowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar;
 bool ui::bDraw = true;
@@ -147,66 +147,6 @@ LRESULT WINAPI ui::WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return ::DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-using json = nlohmann::json;
-
-struct account {
-    long long id;
-    std::string name;
-    std::string displayName;
-};
-
-std::string HttpRequest(std::string host, std::string path, std::string method, std::string body = "") {
-    std::string response;
-    HINTERNET hInternet = InternetOpenA("userman", INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-    if (hInternet) {
-        HINTERNET hConnect = InternetConnectA(hInternet, host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, NULL, NULL, INTERNET_SERVICE_HTTP, 0, 0);
-        if (hConnect) {
-            DWORD flags = INTERNET_FLAG_SECURE | INTERNET_FLAG_RELOAD;
-            HINTERNET hRequest = HttpOpenRequestA(hConnect, method.c_str(), path.c_str(), NULL, NULL, NULL, flags, 0);
-
-            if (hRequest) {
-                std::string headers = "Content-Type: application/json";
-                HttpSendRequestA(hRequest, headers.c_str(), headers.length(), (LPVOID)body.c_str(), body.length());
-
-                char buffer[4096];
-                DWORD bytesRead;
-                while (InternetReadFile(hRequest, buffer, sizeof(buffer), &bytesRead) && bytesRead > 0) {
-                    response.append(buffer, bytesRead);
-                }
-                InternetCloseHandle(hRequest);
-            }
-            InternetCloseHandle(hConnect);
-        }
-        InternetCloseHandle(hInternet);
-    }
-    return response;
-}
-
-account getAccountInfo(std::string username) {
-    account account = { 0, "", "" };
-
-    json reqBody = { {"usernames", {username}}, {"excludeBannedUsers", false} };
-
-    std::string rawJson = HttpRequest("users.roblox.com", "/v1/usernames/users", "POST", reqBody.dump());
-    MessageBoxA(0, rawJson.c_str(), "userman", MB_OK);
-
-    try {
-        auto data = json::parse(rawJson);
-        if (!data["data"].empty()) {
-            auto user = data["data"][0];
-            account.id = user["id"];
-            account.name = user["name"];
-            account.displayName = user["displayName"];
-        }
-    }
-    catch (const std::exception& e) { 
-        std::string msg = "failed to fetch user info! (" + std::string(e.what()) + ")";
-        MessageBoxA(0, msg.c_str(), "userman", MB_OK);
-    }
-
-    return account;
-}
-
 constexpr auto to_rgba = [](uint32_t argb) constexpr
 {
     ImVec4 color{};
@@ -282,19 +222,10 @@ void set_colors(ImGuiStyle style) {
     colors[ImGuiCol_ModalWindowDimBg] = to_rgba(0xC821252B);
 }
 
-void account_button(const char* username) {
-    auto cursor = ImGui::GetCursorPos();
-    ImGui::SetCursorPos(ImVec2(cursor.x + 5, cursor.y + 5));
-    std::string id = "##" + std::string(username);
-    auto user = getAccountInfo(username);
-
-    ImGui::Button(id.c_str(), ImVec2(150, 73));
-
-    ImGui::SetCursorPos(ImVec2(cursor.x + 5, cursor.y + 5));
-    ImGui::Text(user.name.c_str());
-    ImGui::Text(user.displayName.c_str());
-    ImGui::Text((const char*)(user.id));
-}
+char url_buf[512] = "";
+//std::string user_downloads = std::getenv("USERPROFILE");
+// const char* custom_dir = user_downloads.c_str();
+//char custom_dir[256] = user_downloads.c_str();
 
 void ui::render()
 {
@@ -449,21 +380,37 @@ void ui::render()
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowTitleAlign, ImVec2(0.5, 0.5));
                 ImGui::Begin(lpWindowName, &bDraw, windowFlags);
                 {
-                    ImGui::BeginChild("##accountPreview", ImVec2(350, 367), true, ImGuiWindowFlags_NoScrollbar);
+                    if (ImGui::BeginTabBar("##main_tabs", 0))
                     {
+                        if (ImGui::BeginTabItem("downloader"))
+                        {
+                            ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() / 2.f - 100.f, ImGui::GetWindowHeight() / 2.f - 10.f));
+                            ImGui::InputTextWithHint("##url", "enter url here", url_buf, IM_ARRAYSIZE(url_buf));
+                            ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() / 2.f - 100.f, ImGui::GetWindowHeight() / 2.f + 10.f));
+                            if (ImGui::Button("download", ImVec2(200, 17)))
+                            {
+                                if (!url_buf)
+                                    MessageBoxA(NULL, "lambda", "no url provided!", MB_OK);
 
+                                std::string command = "./bin/yt-dlp.exe " + (std::string)url_buf;
+                                std::system(command.c_str());
+                            }
+                            ImGui::EndTabItem();
+                        }
+                        if (ImGui::BeginTabItem("queue"))
+                        {
+                            ImGui::Text("queue tab ");
+                            ImGui::EndTabItem();
+                        }
+                        if (ImGui::BeginTabItem("settings"))
+                        {
+                            ImGui::Text("custom download directory");
+                            //if (ImGui::InputText("##custom_dir", dir_buf, sizeof(dir_buf), 0))
+                                
+                            ImGui::EndTabItem();
+                        }
+                        ImGui::EndTabBar();
                     }
-                    ImGui::EndChild();
-                    ImGui::SameLine();
-                    ImGui::BeginChild("##accountPicker", ImVec2(175, 367), true, ImGuiWindowFlags_NoScrollbar);
-                    {
-                        account_button("hi");
-                        account_button("hi");
-                        account_button("hi");
-                        account_button("hi");
-                        account_button("hi");
-                    }
-                    ImGui::EndChild();
                 }
                 ImGui::End();
                 ImGui::PopStyleVar();

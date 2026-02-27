@@ -3593,7 +3593,7 @@ bool ImGui::InputTextMultiline(const char* label, char* buf, size_t buf_size, co
 bool ImGui::InputTextWithHint(const char* label, const char* hint, char* buf, size_t buf_size, ImGuiInputTextFlags flags, ImGuiInputTextCallback callback, void* user_data)
 {
     IM_ASSERT(!(flags & ImGuiInputTextFlags_Multiline)); // call InputTextMultiline()
-    return InputTextEx(label, hint, buf, (int)buf_size, ImVec2(0, 0), flags, callback, user_data);
+    return InputTextEx(label, hint, buf, (int)buf_size, ImVec2(200, 17), flags, callback, user_data);
 }
 
 static int InputTextCalcTextLenAndLineCount(const char* text_begin, const char** out_text_end)
